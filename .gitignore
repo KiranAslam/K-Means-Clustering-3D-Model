@@ -1,0 +1,10 @@
+# Ignore everything by default
+*
+
+# Keep this ignore file
+!.gitignore
+
+# Allow the scripting folder and C# scripts only
+!Assets/
+!Assets/Scripts/
+!Assets/Scripts/**/*.cs

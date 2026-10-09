@@ -32,6 +32,12 @@ public class IntegratedCameraController : MonoBehaviour
     public float zoomSmoothTime = 1.2f;
     public float panSmoothTime = 0.22f;
 
+    [Header("Automatic Rotation")]
+    [Tooltip("Model rotation speed while there is no user interaction, in degrees per second.")]
+    [Min(0f)] public float autoRotationSpeed = 5f;
+    [Tooltip("Idle time before automatic rotation resumes.")]
+    [Min(0f)] public float autoRotationResumeDelay = 1.5f;
+
     private const float DefaultXRot = 32.20003f;
     private const float DefaultYRot = -150.2999f;
     private const float DefaultDistance = 16.08f;
@@ -51,6 +57,7 @@ public class IntegratedCameraController : MonoBehaviour
     private Vector3 panVelocity;
 
     private Vector3 calculatedCenterPoint;
+    private float lastInteractionTime;
 
     void Start()
     {
@@ -77,10 +84,13 @@ public class IntegratedCameraController : MonoBehaviour
         bool mouseOverUI = UnityEngine.EventSystems.EventSystem.current != null
             && UnityEngine.EventSystems.EventSystem.current.IsPointerOverGameObject();
 
+        bool userInteracting = false;
+
         if (!mouseOverUI && Input.GetMouseButton(0))
         {
             targetYRot += Input.GetAxis("Mouse X") * mouseDragSensitivity;
             targetXRot -= Input.GetAxis("Mouse Y") * mouseDragSensitivity;
+            userInteracting = true;
         }
 
         if (!mouseOverUI && Input.GetMouseButton(1))
@@ -89,6 +99,7 @@ public class IntegratedCameraController : MonoBehaviour
             Vector3 up = transform.up;
             targetPanOffset -= right * Input.GetAxis("Mouse X") * panSpeed * targetDistance;
             targetPanOffset -= up * Input.GetAxis("Mouse Y") * panSpeed * targetDistance;
+            userInteracting = true;
         }
 
         if (!mouseOverUI)
@@ -97,10 +108,17 @@ public class IntegratedCameraController : MonoBehaviour
             if (Mathf.Abs(scrollDelta) > 0.001f)
             {
                 targetDistance -= scrollDelta * touchpadZoomSpeed;
+                userInteracting = true;
             }
         }
 
-        HandleTouchInput();
+        userInteracting |= HandleTouchInput();
+
+        if (userInteracting)
+            lastInteractionTime = Time.unscaledTime;
+        else if (targetFocus.gameObject.activeInHierarchy &&
+                 Time.unscaledTime - lastInteractionTime >= autoRotationResumeDelay)
+            AdvanceAutomaticRotation();
 
         targetXRot = Mathf.Clamp(targetXRot, minPitch, maxPitch);
         targetYRot = Mathf.Clamp(targetYRot, minYaw, maxYaw);
@@ -119,26 +137,32 @@ public class IntegratedCameraController : MonoBehaviour
         transform.position = targetRotation * reverseDistance + calculatedCenterPoint + currentPanOffset;
     }
 
-    private void HandleTouchInput()
+    private bool HandleTouchInput()
     {
+        bool userInteracting = false;
+
         if (Input.touchCount == 1)
         {
             Touch touch = Input.GetTouch(0);
 
-            if (IsTouchOverUI(touch.fingerId)) return;
+            if (IsTouchOverUI(touch.fingerId)) return false;
 
             if (touch.phase == TouchPhase.Moved)
             {
                 targetYRot += touch.deltaPosition.x * touchRotateSensitivity;
                 targetXRot -= touch.deltaPosition.y * touchRotateSensitivity;
             }
+
+            userInteracting = touch.phase == TouchPhase.Began ||
+                              touch.phase == TouchPhase.Moved ||
+                              touch.phase == TouchPhase.Stationary;
         }
         else if (Input.touchCount == 2)
         {
             Touch touchZero = Input.GetTouch(0);
             Touch touchOne = Input.GetTouch(1);
 
-            if (IsTouchOverUI(touchZero.fingerId) || IsTouchOverUI(touchOne.fingerId)) return;
+            if (IsTouchOverUI(touchZero.fingerId) || IsTouchOverUI(touchOne.fingerId)) return false;
 
             Vector2 touchZeroPreviousPosition = touchZero.position - touchZero.deltaPosition;
             Vector2 touchOnePreviousPosition = touchOne.position - touchOne.deltaPosition;
@@ -154,7 +178,20 @@ public class IntegratedCameraController : MonoBehaviour
             Vector3 up = transform.up;
             targetPanOffset -= right * averageDelta.x * touchPanSpeed * targetDistance;
             targetPanOffset -= up * averageDelta.y * touchPanSpeed * targetDistance;
+
+            userInteracting = true;
         }
+
+        return userInteracting;
+    }
+
+    private void AdvanceAutomaticRotation()
+    {
+        targetYRot += autoRotationSpeed * Time.unscaledDeltaTime;
+
+        float yawRange = maxYaw - minYaw;
+        if (yawRange > 0f)
+            targetYRot = Mathf.Repeat(targetYRot - minYaw, yawRange) + minYaw;
     }
 
     private bool IsTouchOverUI(int fingerId)

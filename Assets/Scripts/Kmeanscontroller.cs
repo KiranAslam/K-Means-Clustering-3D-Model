@@ -33,6 +33,10 @@ public class KMeansController : MonoBehaviour
     public TMP_Text iterationLabel;
     public Slider speedSlider;
 
+    [Header("UI — Button Selected Colors")]
+    public Color buttonSelectedBackgroundColor = new Color(0f, 0.4f, 0f);
+    public Color buttonSelectedTextColor = Color.white;
+
     [Header("Algorithm Settings")]
     [Range(2, 10)] public int kValue = 3;
     public InitMethod initMethod = InitMethod.KMeansPlusPlus;
@@ -161,6 +165,9 @@ public class KMeansController : MonoBehaviour
 
     private void WireInitButtons()
     {
+        ConfigureButtonColorFeedback(randomInitButton);
+        ConfigureButtonColorFeedback(kMeansPlusPlusButton);
+
         if (randomInitButton != null) randomInitButton.onClick.AddListener(OnRandomInitClicked);
         if (kMeansPlusPlusButton != null) kMeansPlusPlusButton.onClick.AddListener(OnKMeansPlusPlusClicked);
     }
@@ -173,6 +180,9 @@ public class KMeansController : MonoBehaviour
 
     private void WirePlaybackControls()
     {
+        ConfigureButtonColorFeedback(startButton);
+        ConfigureButtonColorFeedback(restartButton);
+
         if (startButton != null) startButton.onClick.AddListener(OnStartButtonClicked);
         if (restartButton != null) restartButton.onClick.AddListener(OnRestartClicked);
 
@@ -183,6 +193,17 @@ public class KMeansController : MonoBehaviour
             speedSlider.maxValue = 1f;
             if (Mathf.Approximately(speedSlider.value, 0f)) speedSlider.value = 0.25f;
         }
+    }
+
+    private void ConfigureButtonColorFeedback(Button button)
+    {
+        if (button == null) return;
+
+        KMeansButtonColorFeedback colorFeedback = button.GetComponent<KMeansButtonColorFeedback>();
+        if (colorFeedback == null)
+            colorFeedback = button.gameObject.AddComponent<KMeansButtonColorFeedback>();
+
+        colorFeedback.SetSelectedColors(buttonSelectedBackgroundColor, buttonSelectedTextColor);
     }
 
     private void OnSliderValueChanged(float value)
@@ -416,6 +437,10 @@ public class KMeansController : MonoBehaviour
             {
                 isPlaying = false;
                 sessionFinished = true;
+
+                if (AudioController.Instance != null)
+                    AudioController.Instance.PlayClusteringCompleteVoice();
+
                 break;
             }
         }

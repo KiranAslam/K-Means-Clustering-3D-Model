@@ -67,6 +67,9 @@ public class SceneSwitcher : MonoBehaviour
             modelCamera.targetFocus = origin != null ? origin : kmcModel.transform;
             modelCamera.ResetToDefaultView();
         }
+
+        if (AudioController.Instance != null)
+            AudioController.Instance.PlayExploreVoice();
     }
 
     public void ShowModelSelection() => ShowKMCModel();
